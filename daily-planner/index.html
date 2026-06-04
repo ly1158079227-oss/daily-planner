@@ -1,0 +1,720 @@
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>每日任务计划表</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      background: #f4f6fb;
+      color: #1f2937;
+    }
+
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 20px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .title h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+
+    .title p {
+      margin: 6px 0 0;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      background: #ffffff;
+      color: #374151;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      font-size: 14px;
+    }
+
+    button:hover {
+      background: #eef2ff;
+    }
+
+    button.active {
+      background: #2563eb;
+      color: white;
+    }
+
+    .status {
+      font-size: 13px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+
+    .main {
+      display: grid;
+      grid-template-columns: 1.4fr 0.8fr;
+      gap: 20px;
+    }
+
+    .calendar-card,
+    .task-panel {
+      background: #ffffff;
+      border-radius: 18px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      padding: 20px;
+    }
+
+    .calendar-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .calendar-top h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .nav-buttons {
+      display: flex;
+      gap: 8px;
+    }
+
+    .weekdays,
+    .calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 10px;
+    }
+
+    .weekday {
+      text-align: center;
+      color: #6b7280;
+      font-size: 13px;
+      padding: 8px 0;
+    }
+
+    .day {
+      min-height: 95px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 10px;
+      cursor: pointer;
+      transition: 0.2s;
+      position: relative;
+    }
+
+    .day:hover {
+      border-color: #93c5fd;
+      background: #eff6ff;
+    }
+
+    .day.selected {
+      border-color: #2563eb;
+      background: #dbeafe;
+    }
+
+    .day.today {
+      border-color: #22c55e;
+    }
+
+    .day.other-month {
+      opacity: 0.35;
+    }
+
+    .day-number {
+      font-weight: 700;
+      font-size: 15px;
+      margin-bottom: 8px;
+    }
+
+    .task-count {
+      display: inline-block;
+      font-size: 12px;
+      color: #2563eb;
+      background: #e0ecff;
+      padding: 4px 8px;
+      border-radius: 999px;
+    }
+
+    .mini-task {
+      font-size: 12px;
+      margin-top: 6px;
+      color: #4b5563;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .panel-title {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .selected-date {
+      margin: 0 0 18px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .add-box {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .add-box input {
+      flex: 1;
+      padding: 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 10px;
+      font-size: 14px;
+    }
+
+    .add-box button {
+      background: #2563eb;
+      color: white;
+    }
+
+    .task-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .task-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      padding: 10px;
+      border-radius: 12px;
+    }
+
+    .task-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+
+    .task-item input[type="text"] {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .task-item.done input[type="text"] {
+      text-decoration: line-through;
+      color: #9ca3af;
+    }
+
+    .delete-btn {
+      background: #fee2e2;
+      color: #dc2626;
+      box-shadow: none;
+      padding: 6px 10px;
+    }
+
+    .empty {
+      text-align: center;
+      color: #9ca3af;
+      padding: 30px 0;
+      font-size: 14px;
+    }
+
+    @media (max-width: 900px) {
+      .main {
+        grid-template-columns: 1fr;
+      }
+
+      .header {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .day {
+        min-height: 72px;
+        padding: 8px;
+      }
+
+      .mini-task {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <div class="header">
+      <div class="title">
+        <h1>每日任务计划表</h1>
+        <p>按周 / 月管理每天要做的事，数据保存到 Supabase 云数据库</p>
+      </div>
+
+      <div class="toolbar">
+        <span id="syncStatus" class="status">正在连接数据库...</span>
+        <button id="weekBtn" class="active">按周查看</button>
+        <button id="monthBtn">按月查看</button>
+        <button id="todayBtn">回到今天</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <section class="calendar-card">
+        <div class="calendar-top">
+          <h2 id="calendarTitle">任务日历</h2>
+          <div class="nav-buttons">
+            <button id="prevBtn">上一个</button>
+            <button id="nextBtn">下一个</button>
+          </div>
+        </div>
+
+        <div class="weekdays">
+          <div class="weekday">周一</div>
+          <div class="weekday">周二</div>
+          <div class="weekday">周三</div>
+          <div class="weekday">周四</div>
+          <div class="weekday">周五</div>
+          <div class="weekday">周六</div>
+          <div class="weekday">周日</div>
+        </div>
+
+        <div id="calendarGrid" class="calendar-grid"></div>
+      </section>
+
+      <aside class="task-panel">
+        <h2 class="panel-title">当天任务</h2>
+        <p id="selectedDateText" class="selected-date"></p>
+
+        <div class="add-box">
+          <input id="taskInput" type="text" placeholder="输入今天要做的事..." />
+          <button id="addTaskBtn">添加</button>
+        </div>
+
+        <div id="taskList" class="task-list"></div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://dutphvtxicsdjjeffehm.supabase.co";
+
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR1dHBodnR4aWNzZGpqZWZmZWhtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA1MzIzODksImV4cCI6MjA5NjEwODM4OX0.vIjpvZTgyapXzsy9tGFI41G5WOt9miWTn1XMS3JlrQI";
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let viewMode = "week";
+    let currentDate = new Date();
+    let selectedDate = formatDate(new Date());
+    let tasks = {};
+
+    const calendarGrid = document.getElementById("calendarGrid");
+    const calendarTitle = document.getElementById("calendarTitle");
+    const selectedDateText = document.getElementById("selectedDateText");
+    const taskInput = document.getElementById("taskInput");
+    const taskList = document.getElementById("taskList");
+    const syncStatus = document.getElementById("syncStatus");
+
+    const weekBtn = document.getElementById("weekBtn");
+    const monthBtn = document.getElementById("monthBtn");
+    const todayBtn = document.getElementById("todayBtn");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+    const addTaskBtn = document.getElementById("addTaskBtn");
+
+    function formatDate(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const d = String(date.getDate()).padStart(2, "0");
+      return `${y}-${m}-${d}`;
+    }
+
+    function parseDate(dateString) {
+      const [y, m, d] = dateString.split("-").map(Number);
+      return new Date(y, m - 1, d);
+    }
+
+    function getMonday(date) {
+      const d = new Date(date);
+      const day = d.getDay();
+      const diff = day === 0 ? -6 : 1 - day;
+      d.setDate(d.getDate() + diff);
+      return d;
+    }
+
+    function getMonthDays(date) {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+
+      const firstDay = new Date(year, month, 1);
+      const start = getMonday(firstDay);
+
+      const days = [];
+
+      for (let i = 0; i < 42; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        days.push(d);
+      }
+
+      return days;
+    }
+
+    function getWeekDays(date) {
+      const start = getMonday(date);
+      const days = [];
+
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i);
+        days.push(d);
+      }
+
+      return days;
+    }
+
+    function groupTasksByDate(rows) {
+      const result = {};
+
+      rows.forEach(row => {
+        if (!result[row.task_date]) {
+          result[row.task_date] = [];
+        }
+
+        result[row.task_date].push({
+          id: row.id,
+          text: row.content,
+          done: row.done
+        });
+      });
+
+      return result;
+    }
+
+    async function loadTasks() {
+      syncStatus.textContent = "正在同步...";
+
+      const { data, error } = await supabaseClient
+        .from("tasks")
+        .select("*")
+        .order("created_at", { ascending: true });
+
+      if (error) {
+        console.error(error);
+        syncStatus.textContent = "数据库连接失败";
+        syncStatus.style.background = "#fee2e2";
+        syncStatus.style.color = "#dc2626";
+        return;
+      }
+
+      tasks = groupTasksByDate(data || []);
+
+      syncStatus.textContent = "已连接云数据库";
+      syncStatus.style.background = "#dcfce7";
+      syncStatus.style.color = "#166534";
+
+      renderCalendar();
+      renderTasks();
+    }
+
+    function renderCalendar() {
+      calendarGrid.innerHTML = "";
+
+      const days = viewMode === "week"
+        ? getWeekDays(currentDate)
+        : getMonthDays(currentDate);
+
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth() + 1;
+
+      if (viewMode === "week") {
+        const start = days[0];
+        const end = days[6];
+
+        calendarTitle.textContent =
+          `${start.getFullYear()}年${start.getMonth() + 1}月${start.getDate()}日 - ${end.getMonth() + 1}月${end.getDate()}日`;
+      } else {
+        calendarTitle.textContent = `${year}年${month}月`;
+      }
+
+      days.forEach(day => {
+        const dateKey = formatDate(day);
+        const dayTasks = tasks[dateKey] || [];
+
+        const dayEl = document.createElement("div");
+        dayEl.className = "day";
+
+        if (dateKey === selectedDate) {
+          dayEl.classList.add("selected");
+        }
+
+        if (dateKey === formatDate(new Date())) {
+          dayEl.classList.add("today");
+        }
+
+        if (viewMode === "month" && day.getMonth() !== currentDate.getMonth()) {
+          dayEl.classList.add("other-month");
+        }
+
+        const dayNumber = document.createElement("div");
+        dayNumber.className = "day-number";
+        dayNumber.textContent = day.getDate();
+        dayEl.appendChild(dayNumber);
+
+        if (dayTasks.length > 0) {
+          const taskCount = document.createElement("span");
+          taskCount.className = "task-count";
+          taskCount.textContent = `${dayTasks.length} 项任务`;
+          dayEl.appendChild(taskCount);
+        }
+
+        dayTasks.slice(0, 2).forEach(task => {
+          const miniTask = document.createElement("div");
+          miniTask.className = "mini-task";
+          miniTask.textContent = `· ${task.text}`;
+          dayEl.appendChild(miniTask);
+        });
+
+        dayEl.addEventListener("click", () => {
+          selectedDate = dateKey;
+          currentDate = new Date(day);
+          renderCalendar();
+          renderTasks();
+        });
+
+        calendarGrid.appendChild(dayEl);
+      });
+    }
+
+    function renderTasks() {
+      taskList.innerHTML = "";
+
+      const dateObj = parseDate(selectedDate);
+
+      selectedDateText.textContent =
+        `${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日`;
+
+      const dayTasks = tasks[selectedDate] || [];
+
+      if (dayTasks.length === 0) {
+        taskList.innerHTML = `<div class="empty">这一天还没有任务</div>`;
+        return;
+      }
+
+      dayTasks.forEach(task => {
+        const item = document.createElement("div");
+        item.className = "task-item";
+
+        if (task.done) {
+          item.classList.add("done");
+        }
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = task.done;
+
+        const textInput = document.createElement("input");
+        textInput.type = "text";
+        textInput.value = task.text;
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.className = "delete-btn";
+        deleteBtn.textContent = "删除";
+
+        checkbox.addEventListener("change", async () => {
+          await updateTaskDone(task.id, checkbox.checked);
+        });
+
+        textInput.addEventListener("change", async () => {
+          await updateTaskContent(task.id, textInput.value);
+        });
+
+        deleteBtn.addEventListener("click", async () => {
+          await deleteTask(task.id);
+        });
+
+        item.appendChild(checkbox);
+        item.appendChild(textInput);
+        item.appendChild(deleteBtn);
+
+        taskList.appendChild(item);
+      });
+    }
+
+    async function addTask() {
+      const text = taskInput.value.trim();
+
+      if (!text) return;
+
+      syncStatus.textContent = "正在保存...";
+
+      const { error } = await supabaseClient
+        .from("tasks")
+        .insert({
+          task_date: selectedDate,
+          content: text,
+          done: false
+        });
+
+      if (error) {
+        console.error(error);
+        alert("添加失败，请检查 Supabase 数据表和权限设置。");
+        syncStatus.textContent = "保存失败";
+        return;
+      }
+
+      taskInput.value = "";
+      await loadTasks();
+    }
+
+    async function updateTaskDone(id, done) {
+      syncStatus.textContent = "正在保存...";
+
+      const { error } = await supabaseClient
+        .from("tasks")
+        .update({ done })
+        .eq("id", id);
+
+      if (error) {
+        console.error(error);
+        alert("修改失败。");
+        return;
+      }
+
+      await loadTasks();
+    }
+
+    async function updateTaskContent(id, content) {
+      const newContent = content.trim();
+
+      if (!newContent) {
+        alert("任务内容不能为空。");
+        await loadTasks();
+        return;
+      }
+
+      syncStatus.textContent = "正在保存...";
+
+      const { error } = await supabaseClient
+        .from("tasks")
+        .update({ content: newContent })
+        .eq("id", id);
+
+      if (error) {
+        console.error(error);
+        alert("修改失败。");
+        return;
+      }
+
+      await loadTasks();
+    }
+
+    async function deleteTask(id) {
+      const confirmed = confirm("确定要删除这条任务吗？");
+
+      if (!confirmed) return;
+
+      syncStatus.textContent = "正在删除...";
+
+      const { error } = await supabaseClient
+        .from("tasks")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        console.error(error);
+        alert("删除失败。");
+        return;
+      }
+
+      await loadTasks();
+    }
+
+    addTaskBtn.addEventListener("click", addTask);
+
+    taskInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        addTask();
+      }
+    });
+
+    weekBtn.addEventListener("click", () => {
+      viewMode = "week";
+      weekBtn.classList.add("active");
+      monthBtn.classList.remove("active");
+      renderCalendar();
+    });
+
+    monthBtn.addEventListener("click", () => {
+      viewMode = "month";
+      monthBtn.classList.add("active");
+      weekBtn.classList.remove("active");
+      renderCalendar();
+    });
+
+    todayBtn.addEventListener("click", () => {
+      currentDate = new Date();
+      selectedDate = formatDate(new Date());
+      renderCalendar();
+      renderTasks();
+    });
+
+    prevBtn.addEventListener("click", () => {
+      if (viewMode === "week") {
+        currentDate.setDate(currentDate.getDate() - 7);
+      } else {
+        currentDate.setMonth(currentDate.getMonth() - 1);
+      }
+
+      renderCalendar();
+    });
+
+    nextBtn.addEventListener("click", () => {
+      if (viewMode === "week") {
+        currentDate.setDate(currentDate.getDate() + 7);
+      } else {
+        currentDate.setMonth(currentDate.getMonth() + 1);
+      }
+
+      renderCalendar();
+    });
+
+    loadTasks();
+
+    setInterval(loadTasks, 5000);
+  </script>
+</body>
